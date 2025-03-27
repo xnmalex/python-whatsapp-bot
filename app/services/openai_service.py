@@ -5,9 +5,17 @@ import os
 import time
 import logging
 
+
 load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_ASSISTANT_ID = os.getenv("OPENAI_ASSISTANT_ID")
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+OPENAI_ASSISTANT_ID = os.getenv('OPENAI_ASSISTANT_ID')
+print(OPENAI_API_KEY)
+print(OPENAI_ASSISTANT_ID)
+
+
+if not OPENAI_API_KEY or not OPENAI_ASSISTANT_ID:
+    raise EnvironmentError("Missing OPENAI_API_KEY or OPENAI_ASSISTANT_ID")
+
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 
@@ -55,10 +63,9 @@ def run_assistant(thread, name):
     )
 
     # Wait for completion
-    # https://platform.openai.com/docs/assistants/how-it-works/runs-and-run-steps#:~:text=under%20failed_at.-,Polling%20for%20updates,-In%20order%20to
     while run.status != "completed":
         # Be nice to the API
-        time.sleep(0.5)
+        time.sleep(1)
         run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
 
     # Retrieve the Messages
@@ -95,3 +102,5 @@ def generate_response(message_body, wa_id, name):
     new_message = run_assistant(thread, name)
 
     return new_message
+
+
