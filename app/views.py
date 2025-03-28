@@ -9,8 +9,13 @@ from .utils.whatsapp_utils import (
     is_valid_whatsapp_message,
 )
 
-webhook_blueprint = Blueprint("webhook", __name__)
+from .services.openai_service import (
+    list_assistant,
+    create_assistant
+)
 
+webhook_blueprint = Blueprint("webhook", __name__)
+assistant_blueprint = Blueprint("assistant", __name__)
 
 def handle_message():
     """
@@ -90,3 +95,11 @@ def webhook_post():
     return handle_message()
 
 
+@assistant_blueprint.route("/assistant", methods=["GET"])
+def assistant_get():
+    return list_assistant()
+
+@assistant_blueprint.route("/assistant", methods=["POST"])
+@signature_required
+def assistant_post():
+    return create_assistant()

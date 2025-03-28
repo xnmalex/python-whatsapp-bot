@@ -4,14 +4,13 @@ from dotenv import load_dotenv
 import os
 import time
 import logging
+import json
 
+from flask import jsonify, request
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 OPENAI_ASSISTANT_ID = os.getenv('OPENAI_ASSISTANT_ID')
-print(OPENAI_API_KEY)
-print(OPENAI_ASSISTANT_ID)
-
 
 if not OPENAI_API_KEY or not OPENAI_ASSISTANT_ID:
     raise EnvironmentError("Missing OPENAI_API_KEY or OPENAI_ASSISTANT_ID")
@@ -103,4 +102,52 @@ def generate_response(message_body, wa_id, name):
 
     return new_message
 
+def list_assistant():
+    try:
+        assistants = client.beta.assistants.list()
+        assistantList = []
+        for assistant in assistants.data:
+            item = {
+                "id": assistant.id,
+                "name": assistant.name,
+                "model": assistant.model,
+                "description": assistant.description,
+                "instructions": assistant.instructions,
+            }
+            assistantList.append(item)
+        return jsonify(assistantList), 200
+    except Exception as err:
+        logging.error(f"error getting assistant data {err} type {type(err)}")
+        return jsonify({"status": "error", "message": "bad request"}), 400
 
+def create_assistant():
+    try:
+        body = request.get_json()
+        logging.info(f"request body: {body}")
+
+        if is_valid_data(body):
+            # Create an assistant
+            assistant = client.beta.assistants.create(
+            name=body.get("name"),
+            instructions=body.get("instructions"),
+            model=body.get("model"),  # You can also use "gpt-3.5-turbo" if needed
+            tools=body.get("tools")
+            )
+            
+            logging.info(f"Assistant created: {assistant.name}, ID: {assistant.id}")
+            return jsonify({"status": "success", "message": f"Assistant created: {assistant.name}, ID: {assistant.id}"}), 200
+           
+        else:
+            return jsonify({"status": "error", "message": "invalid body"}), 200
+    
+    except Exception as err:
+        logging.error(f"error getting assistant data {err} type {type(err)}")
+        return jsonify({"status": "error", "message": f"bad request{err}"}), 400
+    
+def is_valid_data(body):
+    return (
+        body.get("name")
+        and body.get("instructions")
+        and body.get("model")
+        and body.get("tools")
+    )
