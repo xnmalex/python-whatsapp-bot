@@ -89,7 +89,7 @@ def process_whatsapp_message(body):
     response = process_text_for_whatsapp(response)
 
     data = get_text_message_input(wa_id, response)
-    send_message(data, wa_id)
+    send_message(data)
 
 
 def is_valid_whatsapp_message(body):
