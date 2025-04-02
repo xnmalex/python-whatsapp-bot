@@ -5,6 +5,7 @@ import os
 import time
 import logging
 import json
+import base64
 
 from flask import jsonify, request
 
@@ -74,7 +75,7 @@ def run_assistant(thread, name):
     return new_message
 
 
-def generate_response(message_body, wa_id, name):
+def generate_response(message_body, wa_id, name, image_path=None):
     # Check if there is already a thread_id for the wa_id
     thread_id = check_if_thread_exists(wa_id)
 
@@ -89,12 +90,24 @@ def generate_response(message_body, wa_id, name):
     else:
         logging.info(f"Retrieving existing thread for {name} with wa_id {wa_id}")
         thread = client.beta.threads.retrieve(thread_id)
+        
+        
+    # Step 2: Prepare message content
+    if image_path:
+        message_content = [
+            {"type": "text", "text": message_body or "Please describe this image."},
+            {"type": "image_url", "image_url": {"url": image_path}}
+        ]
+    else:
+        message_content = message_body
+        
+    logging.info(f"OpenAI message content:{message_content}")
 
     # Add message to thread
     message = client.beta.threads.messages.create(
         thread_id=thread_id,
         role="user",
-        content=message_body,
+        content=message_content,
     )
 
     # Run the assistant and get the new message
@@ -161,31 +174,30 @@ def delete_assistant(assistant_id):
         return jsonify({"status": "error", "message": f"bad request{err}"}), 400
     
 def update_assistant(assistant_id):
-        data = request.get_json()
+    data = request.get_json()
 
-        if not data:
-            return jsonify({"error": "Invalid JSON payload"}), 400
+    if not data:
+        return jsonify({"error": "Invalid JSON payload"}), 400
        
-        logging.info(f"request body: {data}")
+    logging.info(f"request body: {data}")
 
-        allowed_keys = is_valid_data(data)
-        unknown_keys = set(data.keys()) - allowed_keys
-        if unknown_keys:
-            return jsonify({"error": f"Unknown fields in request: {list(unknown_keys)}"}), 400
-
+    allowed_keys = is_valid_data(data)
+    unknown_keys = set(data.keys()) - allowed_keys
+    if unknown_keys:
+        return jsonify({"error": f"Unknown fields in request: {list(unknown_keys)}"}), 400
         
-        # Update an assistant
-        try:
-            assistant = client.beta.assistants.update(
-                    assistant_id=assistant_id,
-                    **{k: v for k, v in data.items() if k in allowed_keys}
-            )
+    # Update an assistant
+    try:
+        assistant = client.beta.assistants.update(
+                assistant_id=assistant_id,
+                **{k: v for k, v in data.items() if k in allowed_keys}
+        )
                 
-            logging.info(f"Assistant updated ID: {assistant.id}")
-            return jsonify({"status": "success", "message": f"Assistant updated ID: {assistant.id}"}), 200
-        except Exception as err:
-            logging.error(f"error getting assistant data {err} type {type(err)}")
-            return jsonify({"status": "error", "message": f"bad request{err}"}), 400
+        logging.info(f"Assistant updated ID: {assistant.id}")
+        return jsonify({"status": "success", "message": f"Assistant updated ID: {assistant.id}"}), 200
+    except Exception as err:
+        logging.error(f"error getting assistant data {err} type {type(err)}")
+        return jsonify({"status": "error", "message": f"bad request{err}"}), 400
            
     
 def is_valid_data():

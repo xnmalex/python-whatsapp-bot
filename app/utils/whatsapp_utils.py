@@ -79,18 +79,98 @@ def process_whatsapp_message(body):
     name = body["entry"][0]["changes"][0]["value"]["contacts"][0]["profile"]["name"]
 
     message = body["entry"][0]["changes"][0]["value"]["messages"][0]
-    message_body = message["text"]["body"]
+   
+    msg_type = message["type"]
 
     # TODO: implement custom function here
     # response = generate_response(message_body)
 
-    # OpenAI Integration
-    response = generate_response(message_body, wa_id, name)
-    response = process_text_for_whatsapp(response)
+    # OpenAI Integration     
+    if msg_type == "text":
+        message_body = message["text"]["body"]
+        response = generate_response(message_body, wa_id, name)
+        response = process_text_for_whatsapp(response)
+        data = get_text_message_input(wa_id, response)
+        send_message(data)
 
-    data = get_text_message_input(wa_id, response)
-    send_message(data)
+    elif msg_type == "image":
+        media_id = message["image"]["id"]
+        
+        image_path = None
+        public_url = None
+        try:
+            image_path = download_media_from_whatsapp(media_id, "image")
+            public_url = upload_to_imgur(image_path)
+            logging.info("Image uploaded to PostImages:", public_url)
+            
+              # Capture the caption if it exists
+            caption = message["image"].get("caption", "Describe this image")
+            response = generate_response(caption, wa_id, name, image_path=public_url)
+            data = get_text_message_input(wa_id, response)
+            send_message(data)
+        except Exception as e:
+            logging.info("Failed to process your image.")
+            #send_message(fallback)
+        
+    else:
+        fallback = get_text_message_input(wa_id, "Sorry, I can only process text, images, or documents.")
+        send_message(fallback)
 
+def download_media_from_whatsapp(media_id, media_type="image"):
+    # Step 1: Get media URL
+    headers = {
+        "Content-type": "application/json",
+        "Authorization": f"Bearer {current_app.config['ACCESS_TOKEN']}",
+    }
+
+    url = f"https://graph.facebook.com/{current_app.config['VERSION']}/{media_id}"
+    
+    logging.info(url)
+    res = requests.get(url, headers=headers).json()
+    media_url = res["url"]
+
+    # Step 2: Download actual media file
+    media_resp = requests.get(media_url, headers=headers)
+    extension = "jpeg" if media_type == "image" else "pdf"  # You can improve with mime type detection
+    path = f"/tmp/media_{media_id}.{extension}"
+
+    with open(path, "wb") as f:
+        f.write(media_resp.content)
+
+    return path 
+
+def upload_to_postimages(image_path):
+    url = "https://postimages.org/json/rr"
+    files = {"file": open(image_path, "rb")}
+    data = {
+        "upload_session": "123",     # Any string
+        "numfiles": "1",
+        "gallery": "",
+        "exp": "0",
+        "ui": "1"
+    }
+    response = requests.post(url, data=data, files=files)
+    try:
+        result = response.json()
+        return result["url"]  # This is the public image page
+    except Exception:
+        logging.info("[DEBUG] Raw response:", response.text)
+        raise Exception("Upload to PostImages failed")
+    
+def upload_to_imgur(image_path):
+    headers = {"Authorization": f"Client-ID 23fab5eea475c19"}
+    with open(image_path, "rb") as img:
+        response = requests.post(
+            "https://api.imgur.com/3/image",
+            headers=headers,
+            files={"image": img}
+        )
+    data = response.json()
+    if data.get("success"):
+        return data["data"]["link"]
+    else:
+        raise Exception(f"Imgur upload failed: {data}")
+  
 
 def is_valid_whatsapp_message(body):
     """
