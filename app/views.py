@@ -3,7 +3,7 @@ import json
 
 from flask import Blueprint, request, jsonify, current_app
 
-from .decorators.security import signature_required
+from .decorators.security import signature_required, auth_required
 from .utils.whatsapp_utils import (
     process_whatsapp_message,
     is_valid_whatsapp_message,
@@ -11,7 +11,9 @@ from .utils.whatsapp_utils import (
 
 from .services.openai_service import (
     list_assistant,
-    create_assistant
+    create_assistant,
+    delete_assistant,
+    update_assistant
 )
 
 webhook_blueprint = Blueprint("webhook", __name__)
@@ -100,6 +102,17 @@ def assistant_get():
     return list_assistant()
 
 @assistant_blueprint.route("/assistant", methods=["POST"])
-@signature_required
+@auth_required
 def assistant_post():
     return create_assistant()
+
+
+@assistant_blueprint.route("/assistant/<assistant_id>", methods=["DELETE"])
+@auth_required
+def assistant_delete(assistant_id):
+    return delete_assistant(assistant_id)
+
+@assistant_blueprint.route("/assistant/<assistant_id>", methods=["PUT"])
+@auth_required
+def assistant_put(assistant_id):
+    return update_assistant(assistant_id)

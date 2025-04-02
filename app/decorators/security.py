@@ -36,3 +36,13 @@ def signature_required(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+def auth_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        token = request.headers.get("Authorization")
+        if not token or token != "Bearer secret123":
+            return jsonify({"error": "Unauthorized"}), 401
+        return func(*args, **kwargs)
+    return wrapper

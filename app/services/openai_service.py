@@ -121,21 +121,37 @@ def list_assistant():
         return jsonify({"status": "error", "message": "bad request"}), 400
 
 def create_assistant():
-    try:
-        body = request.get_json()
-        logging.info(f"request body: {body}")
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON payload"}), 400
+        logging.info(f"request body: {data}")
 
-        if is_valid_data(body):
-            # Create an assistant
-            assistant = client.beta.assistants.create(
-            name=body.get("name"),
-            instructions=body.get("instructions"),
-            model=body.get("model"),  # You can also use "gpt-3.5-turbo" if needed
-            tools=body.get("tools")
-            )
+    allowed_keys = is_valid_data()
+    unknown_keys = set(data.keys()) - allowed_keys
+    if unknown_keys:
+        return jsonify({"error": f"Unknown fields in request: {list(unknown_keys)}"}), 400
+
+    try:
+        # Create an assistant
+        assistant = client.beta.assistants.create(
+            **{k: v for k, v in data.items() if k in allowed_keys}
+        )
             
-            logging.info(f"Assistant created: {assistant.name}, ID: {assistant.id}")
-            return jsonify({"status": "success", "message": f"Assistant created: {assistant.name}, ID: {assistant.id}"}), 200
+        logging.info(f"Assistant created: {assistant.name}, ID: {assistant.id}")
+        return jsonify({"status": "success", "message": f"Assistant created: {assistant.name}, ID: {assistant.id}"}), 200
+    except Exception as err:
+        logging.error(f"error getting assistant data {err} type {type(err)}")
+        return jsonify({"status": "error", "message": f"bad request{err}"}), 400
+       
+    
+def delete_assistant(assistant_id):
+    try:
+        if assistant_id:
+            # Delete the assistant
+            assistant = client.beta.assistants.delete(assistant_id)
+            
+            logging.info(f"Assistant deleted ID: {assistant.id}")
+            return jsonify({"status": "success", "message": f"Assistant deleted ID: {assistant.id}"}), 200
            
         else:
             return jsonify({"status": "error", "message": "invalid body"}), 200
@@ -144,10 +160,36 @@ def create_assistant():
         logging.error(f"error getting assistant data {err} type {type(err)}")
         return jsonify({"status": "error", "message": f"bad request{err}"}), 400
     
-def is_valid_data(body):
-    return (
-        body.get("name")
-        and body.get("instructions")
-        and body.get("model")
-        and body.get("tools")
-    )
+def update_assistant(assistant_id):
+        data = request.get_json()
+
+        if not data:
+            return jsonify({"error": "Invalid JSON payload"}), 400
+       
+        logging.info(f"request body: {data}")
+
+        allowed_keys = is_valid_data(data)
+        unknown_keys = set(data.keys()) - allowed_keys
+        if unknown_keys:
+            return jsonify({"error": f"Unknown fields in request: {list(unknown_keys)}"}), 400
+
+        
+        # Update an assistant
+        try:
+            assistant = client.beta.assistants.update(
+                    assistant_id=assistant_id,
+                    **{k: v for k, v in data.items() if k in allowed_keys}
+            )
+                
+            logging.info(f"Assistant updated ID: {assistant.id}")
+            return jsonify({"status": "success", "message": f"Assistant updated ID: {assistant.id}"}), 200
+        except Exception as err:
+            logging.error(f"error getting assistant data {err} type {type(err)}")
+            return jsonify({"status": "error", "message": f"bad request{err}"}), 400
+           
+    
+def is_valid_data():
+    allowed_keys = {'name', 'instructions', 'model', 'tools', 'metadata', 'description'}
+    return allowed_keys
+           
+    
