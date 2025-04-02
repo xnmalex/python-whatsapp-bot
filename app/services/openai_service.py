@@ -127,7 +127,7 @@ def generate_response(message_body, wa_id, name, image_path=None, file_path=None
 
 def list_assistant():
     try:
-        assistants = client.beta.assistants.list()
+        assistants = client.beta.assistants.list().data
         assistant_list = [a.model_dump() for a in assistants]
         return jsonify(assistant_list), 200
     except Exception as err:
