@@ -75,9 +75,10 @@ def run_assistant(thread, name):
     return new_message
 
 
-def generate_response(message_body, wa_id, name, image_path=None):
+def generate_response(message_body, wa_id, name, image_path=None, file_path=None):
     # Check if there is already a thread_id for the wa_id
     thread_id = check_if_thread_exists(wa_id)
+    file_id = None
 
     # If a thread doesn't exist, create one and store it
     if thread_id is None:
@@ -98,18 +99,27 @@ def generate_response(message_body, wa_id, name, image_path=None):
             {"type": "text", "text": message_body or "Please describe this image."},
             {"type": "image_url", "image_url": {"url": image_path}}
         ]
+    elif file_path:
+        message_content = [
+            {"type": "text", "text": message_body or "Please describe this document."},
+        ]
+        with open(file_path, "rb") as f:
+            file = client.files.create(file=f, purpose="assistants")
+            file_id = file.id
     else:
         message_content = message_body
         
-    logging.info(f"OpenAI message content:{message_content}")
-
     # Add message to thread
-    message = client.beta.threads.messages.create(
-        thread_id=thread_id,
-        role="user",
-        content=message_content,
-    )
-
+    message_params = {
+        "thread_id": thread_id,
+        "role": "user",
+        "content": message_content,
+    }
+    if file_id:
+        message_params["attachments"] = [{"file_id": file_id, "tools": [{"type": "file_search"}]}]
+        
+    logging.info(f"[OpenAI] Sending message with params: {message_params}")
+    message = client.beta.threads.messages.create(**message_params)
     # Run the assistant and get the new message
     new_message = run_assistant(thread, name)
 
@@ -118,17 +128,8 @@ def generate_response(message_body, wa_id, name, image_path=None):
 def list_assistant():
     try:
         assistants = client.beta.assistants.list()
-        assistantList = []
-        for assistant in assistants.data:
-            item = {
-                "id": assistant.id,
-                "name": assistant.name,
-                "model": assistant.model,
-                "description": assistant.description,
-                "instructions": assistant.instructions,
-            }
-            assistantList.append(item)
-        return jsonify(assistantList), 200
+        assistant_list = [a.model_dump() for a in assistants]
+        return jsonify(assistant_list), 200
     except Exception as err:
         logging.error(f"error getting assistant data {err} type {type(err)}")
         return jsonify({"status": "error", "message": "bad request"}), 400
@@ -137,7 +138,6 @@ def create_assistant():
     data = request.get_json()
     if not data:
         return jsonify({"error": "Invalid JSON payload"}), 400
-        logging.info(f"request body: {data}")
 
     allowed_keys = is_valid_data()
     unknown_keys = set(data.keys()) - allowed_keys
@@ -181,7 +181,7 @@ def update_assistant(assistant_id):
        
     logging.info(f"request body: {data}")
 
-    allowed_keys = is_valid_data(data)
+    allowed_keys = is_valid_data()
     unknown_keys = set(data.keys()) - allowed_keys
     if unknown_keys:
         return jsonify({"error": f"Unknown fields in request: {list(unknown_keys)}"}), 400
