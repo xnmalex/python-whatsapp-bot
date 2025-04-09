@@ -9,15 +9,11 @@ from .utils.whatsapp_utils import (
     is_valid_whatsapp_message,
 )
 
-from .services.openai_service import (
-    list_assistant,
-    create_assistant,
-    delete_assistant,
-    update_assistant
-)
+from app.shared.telegram_sender import TelegramSender
 
 webhook_blueprint = Blueprint("webhook", __name__)
 assistant_blueprint = Blueprint("assistant", __name__)
+
 
 def handle_message():
     """
@@ -96,23 +92,16 @@ def webhook_get():
 def webhook_post():
     return handle_message()
 
+@webhook_blueprint.route("/telegram/webhook", methods=["POST"])
+def telegram_webhook_post():
+    try:
+        telegram_bot = TelegramSender(current_app.config["TELEGRAM_BOT_TOKEN"])
+        data = request.get_json()
+        result = telegram_bot.handle_message(data)
+        
+        return jsonify({"status": "ok", "result": result}), 200
+    except Exception as e:
+        logging.error(f"Webhook error: {e}")
+        return jsonify({"error": "Something went wrong"}), 500
 
-@assistant_blueprint.route("/assistant", methods=["GET"])
-def assistant_get():
-    return list_assistant()
 
-@assistant_blueprint.route("/assistant", methods=["POST"])
-@auth_required
-def assistant_post():
-    return create_assistant()
-
-
-@assistant_blueprint.route("/assistant/<assistant_id>", methods=["DELETE"])
-@auth_required
-def assistant_delete(assistant_id):
-    return delete_assistant(assistant_id)
-
-@assistant_blueprint.route("/assistant/<assistant_id>", methods=["PUT"])
-@auth_required
-def assistant_put(assistant_id):
-    return update_assistant(assistant_id)

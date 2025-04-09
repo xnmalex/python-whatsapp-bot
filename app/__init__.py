@@ -1,6 +1,16 @@
 from flask import Flask
 from app.config import load_configurations, configure_logging
-from .views import webhook_blueprint, assistant_blueprint
+from .views import webhook_blueprint
+from app.routes.auth_routes import auth_blueprint
+from app.routes.profile_routes import profile_blueprint
+from app.routes.app_routes import app_blueprint
+from app.routes.assistant_routes import assistant_blueprint
+from app.routes.admin_subscription_routes import admin_subscription_bp
+from app.routes.user_subscription_routes import user_subscription_bp
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 
 def create_app():
@@ -12,6 +22,13 @@ def create_app():
 
     # Import and register blueprints, if any
     app.register_blueprint(webhook_blueprint)
+    app.register_blueprint(auth_blueprint)
+    app.register_blueprint(profile_blueprint)
+    app.register_blueprint(app_blueprint)
     app.register_blueprint(assistant_blueprint)
-
+    
+    #subscriptions blueprints
+    app.register_blueprint(user_subscription_bp)
+    app.register_blueprint(admin_subscription_bp)
+    
     return app

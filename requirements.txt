@@ -4,3 +4,6 @@ openai
 aiohttp
 requests
 gunicorn
+google-cloud-firestore
+Werkzeug
+PyJWT

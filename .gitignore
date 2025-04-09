@@ -89,3 +89,11 @@ target/
 
 # Exlcude the database file
 .db
+
+data/
+start
+threads_db
+deploy.bat
+
+# Exlcude secret folder
+secrets/

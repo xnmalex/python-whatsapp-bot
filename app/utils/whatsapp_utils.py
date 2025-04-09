@@ -6,6 +6,7 @@ import requests
 from app.services.openai_service import generate_response
 import re
 import mimetypes
+from app.shared.whatsapp_sender import WhatsAppSender
 
 def log_http_response(response):
     logging.info(f"Status: {response.status_code}")
@@ -28,33 +29,6 @@ def get_text_message_input(recipient, text):
 # def generate_response(response):
     # Return text in uppercase
     # return response.upper()
-
-
-def send_message(data):
-    headers = {
-        "Content-type": "application/json",
-        "Authorization": f"Bearer {current_app.config['ACCESS_TOKEN']}",
-    }
-
-    url = f"https://graph.facebook.com/{current_app.config['VERSION']}/{current_app.config['PHONE_NUMBER_ID']}/messages"
-
-    try:
-        response = requests.post(
-            url, data=data, headers=headers, timeout=10
-        )  # 10 seconds timeout as an example
-        response.raise_for_status()  # Raises an HTTPError if the HTTP request returned an unsuccessful status code
-    except requests.Timeout:
-        logging.error("Timeout occurred while sending message")
-        return jsonify({"status": "error", "message": "Request timed out"}), 408
-    except (
-        requests.RequestException
-    ) as e:  # This will catch any general request exception
-        logging.error(f"Request failed due to: {e}")
-        return jsonify({"status": "error", "message": "Failed to send message"}), 500
-    else:
-        # Process the response as normal
-        log_http_response(response)
-        return response
 
 
 def process_text_for_whatsapp(text):
@@ -87,14 +61,19 @@ def process_whatsapp_message(body):
     # response = generate_response(message_body)
     file_path = None
     public_url = None
+    
+    wa_sender = WhatsAppSender(
+        access_token=current_app.config['ACCESS_TOKEN'],
+        phone_number_id=current_app.config['PHONE_NUMBER_ID']
+    )
 
     # OpenAI Integration     
     if msg_type == "text":
         message_body = message["text"]["body"]
         response = generate_response(message_body, wa_id, name)
         response = process_text_for_whatsapp(response)
-        data = get_text_message_input(wa_id, response)
-        send_message(data)
+       
+        wa_sender.send_text(wa_id, response)
 
     elif msg_type == "image":
         media_id = message["image"]["id"]
@@ -107,8 +86,7 @@ def process_whatsapp_message(body):
             # Capture the caption if it exists
             caption = message["image"].get("caption", "Describe this image")
             response = generate_response(caption, wa_id, name, image_path=public_url)
-            data = get_text_message_input(wa_id, response)
-            send_message(data)
+            wa_sender.send_text(wa_id, response)
         except Exception as e:
             logging.info(f"Failed to process your image. {e}")
             #send_message(fallback)
@@ -121,14 +99,13 @@ def process_whatsapp_message(body):
             # Capture the caption if it exists
             caption = message["document"].get("caption", "Describe this document")
             response = generate_response(caption, wa_id, name, file_path=file_path)
-            data = get_text_message_input(wa_id, response)
-            send_message(data)
+            wa_sender.send_text(wa_id, response)
         except Exception as e:
             logging.info(f"Failed to process your document.{e}")
         
     else:
         fallback = get_text_message_input(wa_id, "Sorry, I can only process text, images, or documents.")
-        send_message(fallback)
+        wa_sender.send_text(wa_id, response)
 
 def download_media_from_whatsapp(media_id, mime_type):
     ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png"}
