@@ -5,5 +5,6 @@ aiohttp
 requests
 gunicorn
 google-cloud-firestore
+google-cloud-storage
 Werkzeug
 PyJWT

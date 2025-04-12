@@ -2,7 +2,6 @@ from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import jwt
-import uuid
 import os
 
 from app.db.user_dao import create_user, get_user_by_email  # Firestore-based

@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.db.user_dao import get_user_by_id, update_user, delete_user
-from app.utils.timestamp_utils import update_timestamp
+from app.db.user_dao import get_user_by_id, delete_user
 import jwt
 import os
 

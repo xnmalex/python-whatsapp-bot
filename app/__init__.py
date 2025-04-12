@@ -1,6 +1,6 @@
 from flask import Flask
 from app.config import load_configurations, configure_logging
-from .views import webhook_blueprint
+from app.routes.webhook_routes import webhook_blueprint
 from app.routes.auth_routes import auth_blueprint
 from app.routes.profile_routes import profile_blueprint
 from app.routes.app_routes import app_blueprint
