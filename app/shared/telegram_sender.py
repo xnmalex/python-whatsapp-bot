@@ -32,7 +32,7 @@ class TelegramSender(MessageSender):
             app_id=self.app_id,
             platform="telegram",
             thread_id=thread_id,
-            chat_id=chat_id,
+            chat_id=str(chat_id),
             content=reply,
             message_type="text",
             direction="right",
@@ -90,7 +90,7 @@ class TelegramSender(MessageSender):
                     app_id=self.app_id,
                     platform="telegram",
                     thread_id=thread.id,
-                    chat_id=chat_id,
+                    chat_id=str(chat_id),
                     content=content,
                     message_type=message_type,
                     file_url=image_path if message_type == "image" else doc_path
