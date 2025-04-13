@@ -7,9 +7,11 @@ from app.utils.gsc_utils import upload_to_gcs_and_get_url
 from app.db.message_dao import save_message
 
 class TelegramSender(MessageSender):
-    def __init__(self, bot_token):
+    def __init__(self, bot_token, app_id=None, subscription=None):
         self.token = bot_token
         self.api_url = f"https://api.telegram.org/bot{bot_token}"
+        self.app_id = app_id
+        self.subscription = subscription or {"tier": "free"}
 
     def send_text(self, chat_id, message):
         url = f"{self.api_url}/sendMessage"
@@ -25,7 +27,17 @@ class TelegramSender(MessageSender):
             logging.error(f"Failed to send Telegram message: {e}")
             return False
         
-    def handle_assistant_reply(self,chat_id, reply):
+    def handle_assistant_reply(self,chat_id, thread_id, reply):
+        save_message(
+            app_id=self.app_id,
+            platform="telegram",
+            thread_id=thread_id,
+            chat_id=chat_id,
+            content=reply,
+            message_type="text",
+            direction="right",
+            role="assistant"   
+        )
         return self.send_text(chat_id, reply)
 
     def handle_message(self, data):
@@ -37,7 +49,6 @@ class TelegramSender(MessageSender):
             logging.warning("No message in Telegram payload.")
             return None
 
-        app_id = "51d07c69-ec1c-4e34-a917-283c1a553f6c"
         message = data["message"]
         chat_id = message["chat"]["id"]
         user_text = message.get("text", "")
@@ -74,17 +85,15 @@ class TelegramSender(MessageSender):
                 #generate response from assistant    
                 thread, name = generate_response(message_body=content, wa_id=str(chat_id), name=user_name, image_path=image_path, file_path=doc_path)
             
-                Thread(target=run_assistant_background, args=(thread,name, lambda reply: self.handle_assistant_reply(chat_id, reply))).start()
+                Thread(target=run_assistant_background, args=(thread,name, lambda thread_id, reply: self.handle_assistant_reply(chat_id, thread_id, reply))).start()    
                 save_message(
-                    user_id=str(chat_id),
-                    app_id=app_id,
+                    app_id=self.app_id,
                     platform="telegram",
                     thread_id=thread.id,
                     chat_id=chat_id,
                     content=content,
                     message_type=message_type,
-                    file_url=image_path if message_type == "image" else doc_path,
-                    assistant_reply=None
+                    file_url=image_path if message_type == "image" else doc_path
                 )
             except Exception as e:
                 logging.info(f"Unable to process message: {e}")

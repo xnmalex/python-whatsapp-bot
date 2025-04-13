@@ -4,27 +4,30 @@ from app.db.firestore_helper import get_collection
 
 messages_ref = get_collection("messages")
 
-# Save a user message (text or image) to Firestore
-def save_message(user_id, app_id, platform, chat_id, content, message_type="text", file_url=None, thread_id=None, assistant_reply=None):
-    message_id = str(uuid.uuid4())
+# Save a user, assistant, or human agent message to Firestore
+def save_message(**kwargs):
     now = datetime.utcnow().isoformat()
 
     message_data = {
-        "message_id": message_id,
-        "user_id": user_id,
-        "app_id": app_id,
-        "platform": platform,
-        "chat_id": chat_id,
-        "content": content,
-        "message_type": message_type,
-        "file_url": file_url,
-        "thread_id": thread_id,
-        "assistant_reply": assistant_reply,
+        "user_id": kwargs.get("user_id"),
+        "app_id": kwargs.get("app_id"),
+        "platform": kwargs.get("platform"),
+        "chat_id": kwargs.get("chat_id"),
+        "direction": kwargs.get("direction", "left"),
+        "role": kwargs.get("role", "user"),
+        "content": kwargs.get("content"),
+        "message_type": kwargs.get("message_type"),
+        "file_url": kwargs.get("file_url"),
         "created_at": now,
         "updated_at": now
     }
 
-    messages_ref.document(message_id).set(message_data)
+    if "thread_id" in kwargs:
+        message_data["thread_id"] = kwargs["thread_id"]
+
+    doc_ref = messages_ref.document()
+    message_data["message_id"] = doc_ref.id
+    doc_ref.set(message_data)
     return message_data
 
 def update_message_by_thread(thread_id: str, updates: dict):
@@ -39,6 +42,14 @@ def update_message_by_thread(thread_id: str, updates: dict):
     return False
 
 # Fetch messages by user (optional utility)
-def get_messages_by_user(user_id, limit=20):
-    query = messages_ref.where("user_id", "==", user_id).order_by("created_at", direction="DESCENDING").limit(limit)
+def get_messages_by_app(app_id, limit=20):
+    query = messages_ref.where(filter=("app_id", "==", app_id)).order_by("created_at", direction="DESCENDING").limit(limit)
     return [doc.to_dict() for doc in query.stream()]
+
+# Get all messages for a given chat ID
+def get_messages_by_chat_id(chat_id, limit=20, start_after=None):
+    messages = messages_ref.where(filter=("chat_id", "==", chat_id)).order_by("created_at").stream()
+    if start_after:
+        query = query.start_after({"created_at": start_after})
+    messages = query.stream()
+    return [msg.to_dict() for msg in messages]

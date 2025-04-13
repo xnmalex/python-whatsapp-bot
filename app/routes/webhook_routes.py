@@ -8,6 +8,8 @@ from ..utils.message_utils import (
 
 from app.shared.telegram_sender import TelegramSender
 from app.shared.whatsapp_sender import WhatsAppSender
+from app.db.app_dao import get_app_by_app_token, get_app_by_waba_phone_id
+from flask import g
 
 webhook_blueprint = Blueprint("webhook", __name__)
 
@@ -40,11 +42,30 @@ def handle_message():
 
     try:
         if is_valid_whatsapp_message(body):
+            try:
+                phone_number_id = body["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"]
+            except (KeyError, IndexError):
+                return jsonify({"error": "Missing phone_number_id in webhook payload"}), 400
             
-            whatsapp_bot = WhatsAppSender( access_token=current_app.config['ACCESS_TOKEN'],
-                     phone_number_id=current_app.config['PHONE_NUMBER_ID'])
-            result = whatsapp_bot.handle_message(body)
-            return jsonify({"status": "ok", "result":result}), 200
+            app = get_app_by_waba_phone_id(phone_number_id)
+            if not app:
+                return jsonify({"error": "Invalid phone_number_id or app not found"}), 403
+
+            app_id = app.get("app_id")
+            subscription = app.get("subscription", {"tier": "free"})
+            
+            whatsapp_bot = WhatsAppSender( 
+                access_token=current_app.config['ACCESS_TOKEN'],
+                phone_number_id=current_app.config['PHONE_NUMBER_ID'],
+                app_id = app_id,
+                subscription = subscription
+            )
+            try:
+                result = whatsapp_bot.handle_message(body)
+                return jsonify({"status": "ok", "result":result}), 200
+            except Exception as e:
+                logging.exception("Failed to handle WhatsApp message")
+                return jsonify({"error": str(e)}), 500
         else:
             # if the request is not a WhatsApp API event, return an error
             return (
@@ -92,9 +113,24 @@ def webhook_post():
     return handle_message()
 
 @webhook_blueprint.route("/telegram/webhook", methods=["POST"])
-def telegram_webhook_post():
+def telegram_webhook_post():   
     try:
-        telegram_bot = TelegramSender(current_app.config["TELEGRAM_BOT_TOKEN"])
+        app_token = request.args.get("app_token")
+        if not app_token:
+            return jsonify({"error": "Missing app_token in query"}), 400
+
+        app = get_app_by_app_token(app_token)
+        if not app:
+            return jsonify({"error": "Invalid app_token or app not found"}), 403
+        
+        app_id = app.get("app_id")
+        subscription = app.get("subscription", {"tier": "free"})
+        
+        telegram_bot = TelegramSender(
+            current_app.config["TELEGRAM_BOT_TOKEN"], 
+            app_id=app_id,
+            subscription=subscription
+        )
         data = request.get_json()
         result = telegram_bot.handle_message(data)
         

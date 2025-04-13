@@ -9,11 +9,13 @@ from threading import Thread
 import mimetypes
 
 class WhatsAppSender(MessageSender):
-    def __init__(self, access_token, phone_number_id, version="v22.0"):
+    def __init__(self, access_token, phone_number_id, version="v22.0",  app_id=None, subscription=None):
         self.token = access_token
         self.phone_number_id = phone_number_id
         self.version = version
         self.url = f"https://graph.facebook.com/{version}/{self.phone_number_id}/messages"
+        self.app_id = app_id
+        self.subscription = subscription or {"tier": "free"}
 
     def send_text(self, recipient_id, message):
         msg = self.process_text_for_whatsapp(message)
@@ -44,14 +46,13 @@ class WhatsAppSender(MessageSender):
 
         message = body["entry"][0]["changes"][0]["value"]["messages"][0]
         msg_type = message["type"]
-
-        app_id = "51d07c69-ec1c-4e34-a917-283c1a553f6c"
+        
         doc_path = None
         image_path = None
         content = ""
 
         # OpenAI Integration 
-        try:    
+        try: 
             if msg_type == "text":
                 content = message["text"]["body"]
             elif msg_type == "image":
@@ -74,28 +75,36 @@ class WhatsAppSender(MessageSender):
             if content:    
                 thread, name = generate_response(message_body=content, wa_id=wa_id, name=name, image_path=image_path, file_path=doc_path)
                 
+                Thread(target=run_assistant_background, args=(thread,name, lambda thread_id, reply: self.handle_assistant_reply(wa_id, thread_id, reply))).start()
                 save_message(
-                    user_id=str(wa_id),
-                    app_id=app_id,
+                    app_id=self.app_id,
                     platform="whatsapp",
                     thread_id=thread.id,
                     chat_id=str(wa_id),
                     content=content,
                     message_type=msg_type,
-                    file_url=image_path if msg_type == "image" else doc_path,
-                    assistant_reply=None
+                    file_url=image_path if msg_type == "image" else doc_path
                 )
-                
-                Thread(target=run_assistant_background, args=(thread,name, lambda reply: self.handle_assistant_reply(wa_id, reply))).start()
             
         except Exception as e:
             logging.info(f"Failed to generate response .{e}")
             response = "unable to process message"
             self.send_text(wa_id, response)
     
-    def handle_assistant_reply(self, wa_id, reply):
+    def handle_assistant_reply(self, wa_id, thread_id, reply):
         reply = self.process_text_for_whatsapp(reply)
+        save_message(
+            app_id=self.app_id, 
+            platform="whatsapp",
+            thread_id=thread_id, 
+            chat_id=wa_id,
+            content=reply,
+            message_type="text",
+            direction="right",
+            role="assistant"
+        )
         self.send_text(wa_id, reply)
+    
         
     def process_text_for_whatsapp(self, text):
         # Remove brackets
