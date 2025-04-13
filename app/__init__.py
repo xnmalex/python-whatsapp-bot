@@ -7,6 +7,7 @@ from app.routes.app_routes import app_blueprint
 from app.routes.assistant_routes import assistant_blueprint
 from app.routes.admin_subscription_routes import admin_subscription_bp
 from app.routes.user_subscription_routes import user_subscription_bp
+from app.routes.message_routes import message_blueprint
 import sys
 import os
 
@@ -31,4 +32,6 @@ def create_app():
     app.register_blueprint(user_subscription_bp)
     app.register_blueprint(admin_subscription_bp)
     
+    #message blueprints
+    app.register_blueprint(message_blueprint)
     return app

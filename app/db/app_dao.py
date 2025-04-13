@@ -2,6 +2,7 @@ from datetime import datetime
 import uuid
 import secrets
 from app.db.firestore_helper import get_collection
+from google.cloud.firestore_v1 import FieldFilter
 
 apps_ref = get_collection("apps")
 
@@ -31,21 +32,21 @@ def get_app_by_id(app_id):
 
 # Get app by user ID (owner_id)
 def get_app_by_user_id(user_id):
-    query = apps_ref.where(filter=("owner_id", "==", user_id)).limit(1).stream()
+    query = apps_ref.where(filter=FieldFilter("owner_id", "==", user_id)).limit(1).stream()
     for doc in query:
         return doc.to_dict()
     return None
 
 # Get app by app token
 def get_app_by_app_token(app_token):
-    query = apps_ref.where(filter=("app_token", "==", app_token)).limit(1).stream()
+    query = apps_ref.where(filter=FieldFilter("app_token", "==", app_token)).limit(1).stream()
     for doc in query:
         return doc.to_dict()
     return None
 
 # Get app by WABA phone number ID
 def get_app_by_waba_phone_id(phone_number_id):
-    query = apps_ref.where(filter=("waba_settings.phone_number_id", "==", phone_number_id)).limit(1).stream()
+    query = apps_ref.where(filter=FieldFilter("waba_settings.phone_number_id", "==", phone_number_id)).limit(1).stream()
     for doc in query:
         return doc.to_dict()
     return None
@@ -57,7 +58,7 @@ def update_app(app_id, updates: dict):
 
 # List all apps owned by a user
 def list_user_apps(owner_id):
-    apps = apps_ref.where(filter=("owner_id", "==", owner_id)).stream()
+    apps = apps_ref.where(filter=FieldFilter("owner_id", "==", owner_id)).stream()
     return [app.to_dict() for app in apps]
 
 # Delete app by ID

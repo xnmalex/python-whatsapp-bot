@@ -31,8 +31,7 @@ def attach_app_context():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 401
-
-
+        
 # Decorator to enforce app context on protected routes
 def with_app_context(f):
     @wraps(f)
