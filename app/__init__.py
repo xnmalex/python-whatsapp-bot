@@ -10,6 +10,7 @@ from app.routes.user_subscription_routes import user_subscription_bp
 from app.routes.message_routes import message_blueprint
 from app.routes.message_template_routes import template_routes
 from app.routes.scheduler_routes import scheduler_routes
+from app.routes.batch_routes import batch_routes
 import sys
 import os
 
@@ -38,4 +39,5 @@ def create_app():
     app.register_blueprint(message_blueprint)
     app.register_blueprint(template_routes)
     app.register_blueprint(scheduler_routes)
+    app.register_blueprint(batch_routes)
     return app
