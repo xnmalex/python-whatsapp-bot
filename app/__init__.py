@@ -11,6 +11,7 @@ from app.routes.message_routes import message_blueprint
 from app.routes.message_template_routes import template_routes
 from app.routes.scheduler_routes import scheduler_routes
 from app.routes.batch_routes import batch_routes
+from app.routes.contact_routes import contact_routes
 import sys
 import os
 

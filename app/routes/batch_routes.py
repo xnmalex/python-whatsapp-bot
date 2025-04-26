@@ -1,7 +1,6 @@
 from flask import Blueprint, request, jsonify, g
 from app.middleware.auth_context import with_app_context
 from app.db.message_template_dao import get_template_by_id
-from app.db.subscription_dao import get_subscription_by_tier
 from app.shared.whatsapp_sender import WhatsAppSender
 from app.shared.telegram_sender import TelegramSender
 from app.utils.service_profile_helper import ServiceProfileHelper

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app.db.app_dao import create_app, get_app_by_id, update_app, list_user_apps, delete_app
-from app.db.subscription_dao import get_subscription_by_tier
+from app.db.subscription_dao import get_subscription_by_id
 from app.utils.timestamp_utils import update_timestamp
 from app.utils.subscription_utils import get_valid_user_plan  # centralized import
 from google.cloud import firestore
@@ -32,17 +32,18 @@ def create_new_app():
         return jsonify({"error": "'name' is required."}), 400
 
     try:
-        tier, level = get_valid_user_plan(user_id)
-        plan = get_subscription_by_tier(tier)
-        max_apps = plan.get("max_apps", 1) if plan else 1
+        plan_id = get_valid_user_plan(user_id)
+        if plan_id:
+            plan = get_subscription_by_id(plan_id)
+            max_apps = plan.get("max_apps", 1) if plan else 1
+        else:
+            max_apps =1
 
         existing_apps = list_user_apps(user_id)
         if len(existing_apps) >= max_apps:
             return jsonify({"error": f"Your subscription allows a maximum of {max_apps} app(s)."}), 403
 
         app_data = create_app(owner_id=user_id, name=name)
-        app_data["subscription"] = {"tier": tier}
-        update_app(app_data["app_id"], {"subscription": {"tier": tier}})
 
         return jsonify({"message": "App created successfully.", "app": app_data}), 201
     except Exception as e:

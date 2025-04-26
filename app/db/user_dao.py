@@ -1,15 +1,14 @@
 from datetime import datetime
 import uuid
 from app.db.firestore_helper import get_collection
+from app.db.metrics_dao import increment_daily, increment_metric
 
 users_ref = get_collection("users")
 
 # Create a new user
 def create_user(email, password_hash, name, role="user"):
-    user_id = str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
     user_data = {
-        "user_id": user_id,
         "email": email,
         "password": password_hash,
         "name": name,
@@ -17,7 +16,11 @@ def create_user(email, password_hash, name, role="user"):
         "created_at": now,
         "updated_at": now
     }
-    users_ref.document(user_id).set(user_data)
+    doc_ref = users_ref.document()
+    user_data["user_id"] = doc_ref.id
+    doc_ref.set(user_data)
+    increment_metric("total_users")
+    increment_daily("new_users")
     return user_data
 
 # Get user by email
