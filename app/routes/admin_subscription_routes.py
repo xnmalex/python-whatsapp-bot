@@ -36,19 +36,7 @@ def create_subscription():
         return jsonify({"error": "The 'free' plan is reserved as the default and cannot be re-created."}), 400
 
     try:
-        if subscription_dao.get_subscription_by_tier(tier):
-            return jsonify({"error": f"Subscription tier '{tier}' already exists."}), 400
-
-        if subscription_dao.is_level_conflicting(level):
-            return jsonify({"error": f"Another tier already uses level '{level}'. Please choose a unique level."}), 400
-
-        subscription_dao.set_subscription(tier, {
-            "tier": tier,
-            "price": price,
-            "duration_days": duration_days,
-            "level": level,
-            **update_timestamp()
-        })
+        subscription_dao.create_subscription(tier, price, level, duration_days)
         return jsonify({"message": f"Subscription tier '{tier}' created."}), 201
     except Exception as e:
         return jsonify({"error": f"Failed to create subscription: {str(e)}"}), 500
@@ -66,8 +54,8 @@ def get_all_subscriptions():
         return jsonify({"error": f"Failed to fetch subscriptions: {str(e)}"}), 500
 
 
-@admin_subscription_bp.route("/<tier>", methods=["PATCH"])
-def update_subscription(tier):
+@admin_subscription_bp.route("/<plan_id>", methods=["PATCH"])
+def update_subscription(plan_id):
     if not is_admin():
         return jsonify({"error": "Unauthorized"}), 403
 
@@ -78,18 +66,14 @@ def update_subscription(tier):
     if "duration_days" in data:
         updates["duration_days"] = data["duration_days"]
     if "level" in data:
-        new_level = data["level"]
-        if subscription_dao.is_level_conflicting(new_level, exclude_tier=tier):
-            return jsonify({"error": f"Another tier already uses level '{new_level}'. Please choose a unique level."}), 400
-        updates["level"] = new_level
+        updates["level"] = data["level"]
 
     if not updates:
         return jsonify({"error": "No valid fields to update."}), 400
 
     try:
-        updates.update(update_timestamp())
-        subscription_dao.set_subscription(tier, {**subscription_dao.get_subscription_by_tier(tier), **updates})
-        return jsonify({"message": f"Subscription tier '{tier}' updated."}), 200
+        subscription_dao.update_subscription(plan_id, {**updates})
+        return jsonify({"message": f"Subscription updated."}), 200
     except Exception as e:
         return jsonify({"error": f"Failed to update subscription: {str(e)}"}), 500
 

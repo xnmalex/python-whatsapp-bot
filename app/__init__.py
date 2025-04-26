@@ -12,6 +12,7 @@ from app.routes.message_template_routes import template_routes
 from app.routes.scheduler_routes import scheduler_routes
 from app.routes.batch_routes import batch_routes
 from app.routes.contact_routes import contact_routes
+from app.routes.dashboard_routes import admin_dashboard
 import sys
 import os
 
@@ -41,4 +42,8 @@ def create_app():
     app.register_blueprint(template_routes)
     app.register_blueprint(scheduler_routes)
     app.register_blueprint(batch_routes)
+    app.register_blueprint(contact_routes)
+    
+    #admin dashboard
+    app.register_blueprint(admin_dashboard)
     return app

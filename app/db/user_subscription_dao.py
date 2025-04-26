@@ -1,16 +1,24 @@
 from datetime import datetime
 from app.db.firestore_helper import get_collection
+from google.cloud.firestore_v1 import FieldFilter
+from app.db.metrics_dao import increment_metric, decrement_metric
+from app.db.subscription_dao import get_subscription_by_id
 
 user_subscriptions_ref = get_collection("user_subscriptions")
 
 # Create or update a user subscription
-def set_user_subscription(user_id, data):
+def set_user_subscription(user_id, plan_id):
     now = datetime.utcnow().isoformat()
-    data["updated_at"] = now
-    if not user_subscriptions_ref.document(user_id).get().exists:
-        data["created_at"] = now
-    user_subscriptions_ref.document(user_id).set(data)
-    return data
+    
+    plan_data = get_subscription_by_id(plan_id)
+    if not plan_data:
+        raise ValueError("Invalid plan_id")
+    plan_data["updated_at"] = now
+   
+    user_subscriptions_ref.document(user_id).set(plan_data)
+    if plan_data["tier"] != "free":
+        increment_metric("total_paid_subscriptions")
+    return plan_data
 
 # Get user subscription by user ID
 def get_user_subscription(user_id):
@@ -19,7 +27,14 @@ def get_user_subscription(user_id):
 
 # Delete user subscription
 def delete_user_subscription(user_id):
-    user_subscriptions_ref.document(user_id).delete()
+    query = user_subscriptions_ref.where(filter=FieldFilter("user_id", "==", user_id)).limit(1).stream()
+    for doc in query:
+        data = doc.to_dict()
+        if data["tier"] != "free":
+            decrement_metric("total_paid_subscriptions")
+        user_subscriptions_ref.document(doc.id).delete()
+        return True
+    return False
 
 # Check if subscription is expired
 def is_subscription_expired(expiry_at):
