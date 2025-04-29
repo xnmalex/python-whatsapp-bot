@@ -1,7 +1,24 @@
 from functools import wraps
-from flask import request, g, jsonify
+from flask import request, current_app, g, jsonify
 from app.utils.jwt_utils import decode_token
 from app.db.user_dao import get_user_by_id
+import logging
+import hashlib
+import hmac
+
+def validate_signature(payload, signature):
+    """
+    Validate the incoming payload's signature against our expected signature
+    """
+    # Use the App Secret to hash the payload
+    expected_signature = hmac.new(
+        bytes(current_app.config["APP_SECRET"], "latin-1"),
+        msg=payload.encode("utf-8"),
+        digestmod=hashlib.sha256,
+    ).hexdigest()
+
+    # Check if the signature matches
+    return hmac.compare_digest(expected_signature, signature)
 
 def signature_required(f):
     """
@@ -30,7 +47,7 @@ def admin_required(f):
         token = auth_header.split(" ")[1]
         try:
             payload = decode_token(token)
-            user_id = payload.get("user_id")
+            user_id = payload.get("sub")
             user = get_user_by_id(user_id)
 
             if not user or user.get("role") != "admin":
