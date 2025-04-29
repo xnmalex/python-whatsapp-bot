@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.db.user_dao import create_user, get_user_by_email, get_user_by_id, delete_user, list_admins
 from app.db.subscription_dao import create_subscription, update_subscription
-from app.decorators.auth_decorators import super_admin_required
+from app.decorators.auth_decorators import super_admin_required, admin_required
 from app.utils.password_utils import hash_password
 
 super_admin_blueprint = Blueprint("super_admin", __name__)
@@ -105,6 +105,31 @@ def update_subscription_plan(plan_id):
         updates = request.json
         update_subscription(plan_id, updates)
         return jsonify({"success": True, "message": "Subscription plan updated"}), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+    
+@super_admin_blueprint.route("/api/v1/admin/create-user", methods=["POST"])
+@admin_required
+def create_user_by_admin():
+    try:
+        data = request.json
+        email = data.get("email")
+        password = data.get("password")
+        name = data.get("name")
+
+        if not email or not password or not name:
+            return jsonify({"success": False, "message": "Missing required fields"}), 400
+
+        existing_user = get_user_by_email(email)
+        if existing_user:
+            return jsonify({"success": False, "message": "Email already exists"}), 400
+
+        password_hash = hash_password(password)
+        user_data = create_user(email=email, password_hash=password_hash, name=name, role="user")
+
+        user_data.pop("password", None)
+        return jsonify({"success": True, "user": user_data}), 201
 
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
