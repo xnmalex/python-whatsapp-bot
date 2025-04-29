@@ -19,13 +19,18 @@ def create_user(email, password_hash, name, role="user"):
     doc_ref = users_ref.document()
     user_data["user_id"] = doc_ref.id
     doc_ref.set(user_data)
-    increment_metric("total_users")
-    increment_daily("new_users")
+    
+    if role == "user":
+        increment_metric("total_users")
+        increment_daily("new_users")
+    elif role == "admin":
+        increment_metric("total_admin")
+        increment_daily("new_admin")
     return user_data
 
 # Get user by email
 def get_user_by_email(email):
-    users = users_ref.where("email", "==", email).limit(1).stream()
+    users = users_ref.where(filter=FieldFilter("email", "==", email)).limit(1).stream()
     for user in users:
         return user.to_dict()
     return None
