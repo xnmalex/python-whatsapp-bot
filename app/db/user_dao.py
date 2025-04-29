@@ -1,7 +1,7 @@
 from datetime import datetime
-import uuid
 from app.db.firestore_helper import get_collection
 from app.db.metrics_dao import increment_daily, increment_metric
+from google.cloud.firestore_v1 import FieldFilter
 
 users_ref = get_collection("users")
 
@@ -46,7 +46,15 @@ def delete_user(user_id):
 
 # List all users with pagination
 def list_users(limit=10, start_after=None):
-    query = users_ref.order_by("created_at").limit(limit)
+    query = users_ref.where(filter=FieldFilter("role", "==", "user")).order_by("created_at").limit(limit)
+    if start_after:
+        query = query.start_after({"created_at": start_after})
+    users = query.stream()
+    return [user.to_dict() for user in users]
+
+# List all admins with pagination
+def list_admins(limit=10, start_after=None):
+    query = users_ref.where(filter=FieldFilter("role", "==", "admin")).order_by("created_at").limit(limit)
     if start_after:
         query = query.start_after({"created_at": start_after})
     users = query.stream()
