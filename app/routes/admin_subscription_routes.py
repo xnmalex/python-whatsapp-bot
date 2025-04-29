@@ -1,28 +1,12 @@
 from flask import Blueprint, request, jsonify
-import os
-import jwt
 from app.db import subscription_dao
-from app.utils.timestamp_utils import update_timestamp
+from app.decorators.auth_decorators import super_admin_required
 
-admin_subscription_bp = Blueprint("admin_subscription", __name__, url_prefix="/api/v1/admin/subscriptions")
-JWT_SECRET = os.getenv("JWT_SECRET", "supersecret")
-
-
-# Simple admin check
-def is_admin():
-    token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        return payload.get("role") == "admin"
-    except Exception:
-        return False
-
+admin_subscription_bp = Blueprint("admin_subscription", __name__, url_prefix="/api/v1/super-admin/subscriptions")
 
 @admin_subscription_bp.route("", methods=["POST"])
+@super_admin_required
 def create_subscription():
-    if not is_admin():
-        return jsonify({"error": "Unauthorized"}), 403
-
     data = request.get_json()
     tier = data.get("tier")
     price = data.get("price")
@@ -43,10 +27,8 @@ def create_subscription():
 
 
 @admin_subscription_bp.route("", methods=["GET"])
+@super_admin_required
 def get_all_subscriptions():
-    if not is_admin():
-        return jsonify({"error": "Unauthorized"}), 403
-
     try:
         results = subscription_dao.list_subscriptions()
         return jsonify({"subscriptions": results}), 200
@@ -55,10 +37,8 @@ def get_all_subscriptions():
 
 
 @admin_subscription_bp.route("/<plan_id>", methods=["PATCH"])
+@super_admin_required
 def update_subscription(plan_id):
-    if not is_admin():
-        return jsonify({"error": "Unauthorized"}), 403
-
     data = request.get_json()
     updates = {}
     if "price" in data:
@@ -79,10 +59,8 @@ def update_subscription(plan_id):
 
 
 @admin_subscription_bp.route("/<tier>", methods=["DELETE"])
+@super_admin_required
 def delete_subscription(tier):
-    if not is_admin():
-        return jsonify({"error": "Unauthorized"}), 403
-
     try:
         subscription_dao.delete_subscription(tier)
         return jsonify({"message": f"Subscription tier '{tier}' deleted."}), 200
