@@ -13,6 +13,8 @@ from app.routes.scheduler_routes import scheduler_routes
 from app.routes.batch_routes import batch_routes
 from app.routes.contact_routes import contact_routes
 from app.routes.dashboard_routes import admin_dashboard
+from app.routes.admin_user_routes import admin_user_blueprint
+from app.routes.super_admin_routes import super_admin_blueprint
 import sys
 import os
 
@@ -46,4 +48,6 @@ def create_app():
     
     #admin dashboard
     app.register_blueprint(admin_dashboard)
+    app.register_blueprint(admin_user_blueprint)
+    app.register_blueprint(super_admin_blueprint)
     return app
