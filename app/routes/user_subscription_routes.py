@@ -1,12 +1,10 @@
 from flask import Blueprint, request, jsonify
 import os
 import jwt
-from datetime import datetime, timedelta
 from app.db import user_subscription_dao, subscription_dao
 
 user_subscription_bp = Blueprint("user_subscription", __name__, url_prefix="/api/v1/subscriptions")
 JWT_SECRET = os.getenv("JWT_SECRET", "supersecret")
-
 
 def get_user_id():
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -15,7 +13,6 @@ def get_user_id():
         return payload.get("sub")
     except Exception:
         return None
-
 
 @user_subscription_bp.route("/subscribe", methods=["POST"])
 def subscribe_to_plan():
@@ -34,10 +31,8 @@ def subscribe_to_plan():
         if not plan_data:
             return jsonify({"error": "Subscription plan not found."}), 404
 
-        duration_days = int(plan_data.get("duration_days", 30))
         level = plan_data.get("level", 0)
-        tier = plan_data.get("tier")
-        expiry_at = None if duration_days == 0 else (datetime.utcnow() + timedelta(days=duration_days)).isoformat()
+        tier = plan_data.get("tier")       
 
         current_sub = user_subscription_dao.get_user_subscription(user_id)
         if current_sub:

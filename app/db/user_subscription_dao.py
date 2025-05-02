@@ -3,6 +3,7 @@ from app.db.firestore_helper import get_collection
 from google.cloud.firestore_v1 import FieldFilter
 from app.db.metrics_dao import increment_metric, decrement_metric
 from app.db.subscription_dao import get_subscription_by_id
+from datetime import datetime, timedelta
 
 user_subscriptions_ref = get_collection("user_subscriptions")
 
@@ -13,7 +14,11 @@ def set_user_subscription(user_id, plan_id):
     plan_data = get_subscription_by_id(plan_id)
     if not plan_data:
         raise ValueError("Invalid plan_id")
+   
+    duration_days = int(plan_data.get("duration_days", 30))
+    expiry_at = None if duration_days == 0 else (datetime.utcnow() + timedelta(days=duration_days)).isoformat()
     plan_data["updated_at"] = now
+    plan_data["expiry_at"] = expiry_at
    
     user_subscriptions_ref.document(user_id).set(plan_data)
     if plan_data["tier"] != "free":

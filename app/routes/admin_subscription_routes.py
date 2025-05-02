@@ -2,9 +2,9 @@ from flask import Blueprint, request, jsonify
 from app.db import subscription_dao
 from app.decorators.auth_decorators import super_admin_required
 
-admin_subscription_bp = Blueprint("admin_subscription", __name__, url_prefix="/api/v1/super-admin/subscriptions")
+admin_subscription_bp = Blueprint("admin_subscription", __name__)
 
-@admin_subscription_bp.route("", methods=["POST"])
+@admin_subscription_bp.route("/api/v1/super-admin/subscription", methods=["POST"])
 @super_admin_required
 def create_subscription():
     data = request.get_json()
@@ -25,18 +25,7 @@ def create_subscription():
     except Exception as e:
         return jsonify({"error": f"Failed to create subscription: {str(e)}"}), 500
 
-
-@admin_subscription_bp.route("", methods=["GET"])
-@super_admin_required
-def get_all_subscriptions():
-    try:
-        results = subscription_dao.list_subscriptions()
-        return jsonify({"subscriptions": results}), 200
-    except Exception as e:
-        return jsonify({"error": f"Failed to fetch subscriptions: {str(e)}"}), 500
-
-
-@admin_subscription_bp.route("/<plan_id>", methods=["PATCH"])
+@admin_subscription_bp.route("/api/v1/super-admin/subscription/<plan_id>", methods=["PATCH"])
 @super_admin_required
 def update_subscription(plan_id):
     data = request.get_json()
@@ -57,8 +46,7 @@ def update_subscription(plan_id):
     except Exception as e:
         return jsonify({"error": f"Failed to update subscription: {str(e)}"}), 500
 
-
-@admin_subscription_bp.route("/<tier>", methods=["DELETE"])
+@admin_subscription_bp.route("/api/v1/super-admin/subscription/<tier>", methods=["DELETE"])
 @super_admin_required
 def delete_subscription(tier):
     try:
@@ -66,3 +54,11 @@ def delete_subscription(tier):
         return jsonify({"message": f"Subscription tier '{tier}' deleted."}), 200
     except Exception as e:
         return jsonify({"error": f"Failed to delete subscription: {str(e)}"}), 500
+
+@admin_subscription_bp.route("/api/v1/subscription/plans", methods=["GET"])
+def get_all_subscriptions():
+    try:
+        results = subscription_dao.list_subscriptions()
+        return jsonify({"subscriptions": results}), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch subscriptions: {str(e)}"}), 500

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.db.user_dao import create_user, get_user_by_email, get_user_by_id, delete_user, list_admins
+from app.db.user_dao import create_user, get_user_by_email, get_user_by_id, delete_user, list_admins, list_users
 from app.db.subscription_dao import create_subscription, update_subscription
 from app.decorators.auth_decorators import super_admin_required, admin_required
 from app.utils.password_utils import hash_password
@@ -54,26 +54,30 @@ def delete_admin(user_id):
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
     
-@super_admin_blueprint.route("/api/v1/super-admin/list-admins", methods=["GET"])
+@super_admin_blueprint.route("/api/v1/super-admin/users", methods=["GET"])
 @super_admin_required
-def list_admin():
+def list_all_users():
     try:
         limit = int(request.args.get("limit", 20))
         start_after = request.args.get("start_after", None)
+        role = request.args.get("role", "admin")
 
-        admins = list_admins(limit=limit, start_after=start_after)
-        admin_list = []
+        if role == "admin":
+            users = list_admins(limit=limit, start_after=start_after)
+        else:
+            users = list_users(limit=limit, start_after=start_after)
+        user_list = []
 
-        for user in admins:
+        for user in users:
             user_info = {
                 "user_id": user.get("user_id"),
                 "email": user.get("email"),
                 "name": user.get("name"),
                 "created_at": user.get("created_at")
             }
-            admin_list.append(user_info)
+            user_list.append(user_info)
 
-        return jsonify({"success": True, "admins": admin_list}), 200
+        return jsonify({"success": True, "users": user_list}), 200
 
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
