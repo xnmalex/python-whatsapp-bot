@@ -127,18 +127,24 @@ def update_app_settings(app_id):
             settings = data["waba_settings"]
             if not settings:
                 updates["waba_settings"] = firestore.DELETE_FIELD
-            elif not settings.get("phone_number_id") or not settings.get("waba_token"):
-                return jsonify({"error": "Missing phone_number_id or waba_token in waba_settings"}), 400
+            elif not isinstance(settings, list):
+                return jsonify({"error": "waba_settings must be a list"}), 400
             else:
+                for s in settings:
+                    if not s.get("phone_number_id") or not s.get("waba_token"):
+                        return jsonify({"error": "Each WABA setting must include phone_number_id and waba_token"}), 400
                 updates["waba_settings"] = settings
 
         if "telegram_settings" in data:
             settings = data["telegram_settings"]
             if not settings:
                 updates["telegram_settings"] = firestore.DELETE_FIELD
-            elif not settings.get("bot_token"):
-                return jsonify({"error": "Missing bot_token in telegram_settings"}), 400
+            elif not isinstance(settings, list):
+                return jsonify({"error": "telegram_settings must be a list"}), 400
             else:
+                for s in settings:
+                    if not s.get("bot_token"):
+                        return jsonify({"error": "Each Telegram setting must include bot_token"}), 400
                 updates["telegram_settings"] = settings
 
         if not updates:
