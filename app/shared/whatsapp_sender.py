@@ -5,6 +5,7 @@ import re
 from app.services.openai_service import generate_response, run_assistant_background
 from app.db.message_dao import save_message
 from app.utils.gsc_utils import upload_to_gcs_and_get_url
+from app.utils.reply_mode_utils import should_reply_to_user
 from threading import Thread
 import mimetypes
 
@@ -53,6 +54,10 @@ class WhatsAppSender(MessageSender):
 
         # OpenAI Integration 
         try: 
+            if not should_reply_to_user(self.app.id):
+                logging.warning("ai assistant reply turn off or not within schedule")
+                return None
+            
             if msg_type == "text":
                 content = message["text"]["body"]
             elif msg_type == "image":
