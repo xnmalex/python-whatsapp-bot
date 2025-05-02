@@ -37,6 +37,30 @@ def signature_required(f):
 
     return decorated_function
 
+def user_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return jsonify({"success": False, "message": "Missing or invalid token"}), 401
+
+        token = auth_header.split(" ")[1]
+        try:
+            payload = decode_token(token)
+            user_id = payload.get("sub")
+            user = get_user_by_id(user_id)
+
+            if not user or user.get("role") != "user":
+                return jsonify({"success": False, "message": "Unable to find user"}), 403
+
+            g.current_user = user  # store user for downstream use
+        except Exception as e:
+            return jsonify({"success": False, "message": str(e)}), 401
+
+        return f(*args, **kwargs)
+
+    return decorated_function
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -74,9 +98,7 @@ def super_admin_required(f):
             user_id = payload.get("sub")
             user = get_user_by_id(user_id)
 
-            print(payload)
-            print(user)
-            if not user or payload.get("role") != "super_admin":
+            if not user or user.get("role") != "super_admin":
                 return jsonify({"success": False, "message": "Super Admin access required"}), 403
 
             g.current_user = user  # store user for downstream use

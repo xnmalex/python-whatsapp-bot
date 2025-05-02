@@ -1,30 +1,19 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from app.db.app_dao import create_app, get_app_by_id, update_app, list_user_apps, delete_app
 from app.db.subscription_dao import get_subscription_by_id
 from app.utils.timestamp_utils import update_timestamp
 from app.utils.subscription_utils import get_valid_user_plan  # centralized import
+from app.decorators.auth_decorators import user_required
 from google.cloud import firestore
-import jwt
-import os
+from datetime import datetime
 
 app_blueprint = Blueprint("app", __name__, url_prefix="/api/v1/apps")
-JWT_SECRET = os.getenv("JWT_SECRET", "supersecret")
-
-def get_user_id_from_token():
-    token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        return payload.get("sub")
-    except Exception:
-        return None
 
 
 @app_blueprint.route("/create", methods=["POST"])
+@user_required
 def create_new_app():
-    user_id = get_user_id_from_token()
-    if not user_id:
-        return jsonify({"error": "Unauthorized"}), 401
-
+    user_id = g.current_user["user_id"]
     data = request.get_json()
     name = data.get("name")
 
@@ -49,10 +38,10 @@ def create_new_app():
     except Exception as e:
         return jsonify({"error": f"Failed to create app: {str(e)}"}), 500
 
-
 @app_blueprint.route("", methods=["GET"])
+@user_required
 def get_my_apps():
-    user_id = get_user_id_from_token()
+    user_id = g.current_user["user_id"]
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -63,8 +52,9 @@ def get_my_apps():
         return jsonify({"error": f"Failed to retrieve apps: {str(e)}"}), 500
     
 @app_blueprint.route("/<app_id>", methods=["GET"])
+@user_required
 def get_app_by_id_route(app_id):
-    user_id = get_user_id_from_token()
+    user_id = g.current_user["user_id"]
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -78,10 +68,10 @@ def get_app_by_id_route(app_id):
     except Exception as e:
         return jsonify({"error": f"Failed to fetch app: {str(e)}"}), 500
 
-
 @app_blueprint.route("/<app_id>", methods=["DELETE"])
+@user_required
 def delete_app_route(app_id):
-    user_id = get_user_id_from_token()
+    user_id = g.current_user["user_id"]
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -97,10 +87,10 @@ def delete_app_route(app_id):
     except Exception as e:
         return jsonify({"error": f"Failed to delete app: {str(e)}"}), 500
 
-
 @app_blueprint.route("/<app_id>/settings", methods=["PATCH"])
+@user_required
 def update_app_settings(app_id):
-    user_id = get_user_id_from_token()
+    user_id = g.current_user["user_id"]
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -157,3 +147,46 @@ def update_app_settings(app_id):
     except Exception as e:
         return jsonify({"error": f"Failed to update settings: {str(e)}"}), 500
 
+@app_blueprint.route("/<app_id>/autoreply", methods=["PATCH"])
+@user_required
+def update_auto_reply_setting(app_id):
+    try:
+        data = request.get_json()
+        user_id = g.current_user["user_id"]
+        mode = data.get("mode")  # should be 'off', 'auto', or 'scheduled'
+        schedule = data.get("schedule")  # ISO 8601 string if mode is scheduled
+
+        if mode not in ["off", "auto", "scheduled"]:
+            return jsonify({"success": False, "message": "Mode must be one of 'off', 'auto', or 'scheduled'"}), 400
+
+        if mode == "scheduled":
+            if not isinstance(schedule, dict):
+                return jsonify({"success": False, "message": "schedule must be a dictionary with weekdays and time ranges"}), 400
+
+            valid_days = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
+            for day, time_range in schedule.items():
+                if day.lower() not in valid_days:
+                    return jsonify({"success": False, "message": f"Invalid weekday: {day}"}), 400
+                if not isinstance(time_range, dict) or "start" not in time_range or "end" not in time_range:
+                    return jsonify({"success": False, "message": f"Invalid time range for {day}. Must include 'start' and 'end'"}), 400
+       
+        app_data = get_app_by_id(app_id)
+        if not app_data:
+            return jsonify({"error": "App not found"}), 404
+
+        if app_data.get("owner_id") != user_id:
+            return jsonify({"error": "Forbidden"}), 403
+
+        update_fields = {
+            "ai_reply_mode": mode,
+            **update_timestamp()
+        }
+        
+        if mode == "scheduled":
+            update_fields["scheduled_schedule"] = schedule
+
+        update_app(app_id, update_fields)
+
+        return jsonify({"success": True, "message": f"AI reply mode set to {mode} for app {app_id}."}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
