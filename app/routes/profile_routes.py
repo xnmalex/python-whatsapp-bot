@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, g
 from app.db.user_dao import get_user_by_id, update_user
 from app.db.user_subscription_dao import get_user_subscription
 from app.utils.gsc_utils import upload_to_gcs_and_get_url, delete_from_gcs
-from app.decorators.auth_decorators import user_required
+from app.decorators.auth_decorators import auth_required
 from datetime import datetime
 from PIL import Image
 import io
@@ -11,7 +11,7 @@ import io
 profile_blueprint = Blueprint("profile", __name__, url_prefix="/api/v1/profile")
 
 @profile_blueprint.route("/me", methods=["GET"])
-@user_required
+@auth_required
 def get_profile():
     user_id = g.current_user['user_id']
     if not user_id:
@@ -28,7 +28,7 @@ def get_profile():
          return jsonify({"status": False, "error":f"{e}"})
      
 @profile_blueprint.route("/upload", methods=["POST"])
-@user_required
+@auth_required
 def upload_profile_picture():
     try:
         if 'file' not in request.files:
@@ -80,7 +80,7 @@ def upload_profile_picture():
         return jsonify({"success": False, "message": str(e)}), 500
     
 @profile_blueprint.route("/remove-picture", methods=["PATCH"])
-@user_required
+@auth_required
 def remove_profile_picture():
     try:
         user_id = g.current_user['user_id']
