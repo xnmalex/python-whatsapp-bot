@@ -1,8 +1,10 @@
 from flask import Blueprint, request, jsonify
-from app.db.user_dao import create_user, get_user_by_email, get_user_by_id, delete_user, list_admins, list_users
+from app.db.user_dao import create_user, get_user_by_email, get_user_by_id, delete_user, list_admins, list_users, update_user
 from app.db.subscription_dao import create_subscription, update_subscription
 from app.decorators.auth_decorators import super_admin_required, admin_required
 from app.utils.password_utils import hash_password
+from app.db.token_blacklist import blacklist_all_tokens_for_user
+import logging
 
 super_admin_blueprint = Blueprint("super_admin", __name__)
 
@@ -137,3 +139,22 @@ def create_user_by_admin():
 
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+    
+@super_admin_blueprint.route("/api/v1/super-admin/reset-admin-password", methods=["POST"])
+@super_admin_required
+def super_admin_reset_admin_password():
+    data = request.get_json()
+    email = data.get("email")
+    new_password = data.get("new_password")
+
+    if not email or not new_password:
+        return jsonify({"success": False, "message": "Missing email or new password"}), 400
+
+    user = get_user_by_email(email)
+    if not user or user.get("role") != "admin":
+        return jsonify({"success": False, "message": "Target must be an admin"}), 403
+
+    update_user(user["user_id"], {"password": hash_password(new_password)})
+    blacklist_all_tokens_for_user(user["user_id"])
+    logging.info(f"[Super Admin] Reset admin password for {email}")
+    return jsonify({"success": True, "message": f"Password reset for admin {email}"}), 200
