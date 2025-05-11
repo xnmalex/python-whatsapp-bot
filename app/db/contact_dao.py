@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from google.cloud.firestore_v1 import FieldFilter
 from app.db.firestore_helper import get_collection
 
@@ -9,7 +9,7 @@ MAX_BATCH_WRITE = 500
 def save_contact(user_id, platform, chat_id, name, phone_number=None, telegram_username=None):
     if not platform or not chat_id:
         raise ValueError("platform, and chat_id are required fields")
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     contact_data = {
         "user_id":user_id,
         "platform": platform,
@@ -26,7 +26,7 @@ def save_contact(user_id, platform, chat_id, name, phone_number=None, telegram_u
 def save_contacts_batch(user_id, platform, contacts):
     from google.cloud import firestore
     client = firestore.Client()
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     batches = [contacts[i:i + MAX_BATCH_WRITE] for i in range(0, len(contacts), MAX_BATCH_WRITE)]
 
     for batch_group in batches:
@@ -72,7 +72,7 @@ def update_contact(user_id, platform, chat_id, updates):
                          .where(filter=FieldFilter("platform", "==", platform))\
                          .where(filter=FieldFilter("chat_id", "==", chat_id)).limit(1).stream()
     for doc in query:
-        updates["updated_at"] = datetime.utcnow().isoformat()
+        updates["updated_at"] = datetime.now(timezone.utc)
         contacts_ref.document(doc.id).update(updates)
         return True
     return False

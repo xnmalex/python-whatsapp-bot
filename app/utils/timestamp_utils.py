@@ -1,8 +1,7 @@
-from datetime import datetime
-
+from datetime import datetime, timezone
 
 def get_timestamps():
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     return {
         "created_at": now,
         "updated_at": now
@@ -10,4 +9,4 @@ def get_timestamps():
 
 
 def update_timestamp():
-    return {"updated_at": datetime.utcnow().isoformat()}
+    return {"updated_at": datetime.now(timezone.utc)}

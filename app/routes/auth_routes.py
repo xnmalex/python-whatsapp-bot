@@ -1,11 +1,13 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import jwt
 import os
 
-from app.db.user_dao import create_user, get_user_by_email  # Firestore-based
+from app.utils.password_utils import hash_password
+from app.db.user_dao import create_user, get_user_by_email, update_user, get_user_by_id  # Firestore-based
 from app.db.token_blacklist import is_token_blacklisted, blacklist_token
+from app.decorators.auth_decorators import auth_required
 
 # Replace with your secure key or load from environment
 JWT_SECRET = os.environ.get("JWT_SECRET", "supersecret")
@@ -76,6 +78,7 @@ def login():
         "access_token": access_token,
         "refresh_token": refresh_token,
         "user_id": user["user_id"],
+        "name:":user.get("name"),
         "email": user["email"],
         "role": user["role"],
     })
@@ -120,3 +123,35 @@ def logout():
             return jsonify({"error": "Token missing expiry"}), 400
     except jwt.InvalidTokenError:
         return jsonify({"error": "Invalid token"}), 401
+
+
+@auth_blueprint.route("/change-password", methods=["POST"])
+@auth_required
+def change_password():
+    try:
+        user_id = g.current_user['user_id']
+        
+        # block user for changing my super admin
+        if user_id == "VJB0XL3u902nCv2sBCrO":
+            return jsonify({"error": "this user is locked "}), 403
+        
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+      
+        data = request.get_json()
+        current_password = data.get("current_password")
+        new_password = data.get("new_password")
+
+        if not current_password or not new_password:
+            return jsonify({"error": "Both current and new password are required"}), 400
+
+        user = get_user_by_id(user_id)
+        if not user or not check_password_hash(user["password"], current_password):
+            return jsonify({"error": "Current password is incorrect"}), 403
+
+        update_user(user_id, {"password": hash_password(new_password)})
+        blacklist_token(token, payload["exp"])
+
+        return jsonify({"success": True, "message": "Password changed successfully. Please log in again."}), 200
+    except Exception as e:
+        return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500

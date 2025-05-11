@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, g
-from datetime import datetime
+from datetime import datetime, timezone
 from app.middleware.auth_context import with_app_context
 from app.db.scheduler_dao import (
     create_schedule,
@@ -66,7 +66,7 @@ def delete_schedule_route(schedule_id):
 # Cloud Scheduler trigger to dispatch messages
 @scheduler_routes.route("/dispatch", methods=["POST"])
 def dispatch_scheduled_messages():
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     schedules = get_due_schedules(now)
 
     for sched in schedules:

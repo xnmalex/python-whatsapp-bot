@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db.firestore_helper import get_collection
 from google.cloud.firestore_v1 import FieldFilter
 
@@ -7,7 +7,7 @@ schedulers_ref = get_collection("message_schedulers")
 # Create new scheduled message
 def create_schedule(app_id, name, platform, content, send_at, recipients):
     doc_ref = schedulers_ref.document()
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     schedule = {
         "schedule_id": doc_ref.id,
         "app_id": app_id,
@@ -43,7 +43,7 @@ def update_schedule(schedule_id, updates):
     doc_ref = schedulers_ref.document(schedule_id)
     if not doc_ref.get().exists:
         return None
-    updates["updated_at"] = datetime.utcnow().isoformat()
+    updates["updated_at"] = datetime.now(timezone.utc)
     doc_ref.update(updates)
     return True
 

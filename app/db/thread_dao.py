@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db.firestore_helper import get_collection
 from google.cloud.firestore_v1 import FieldFilter
 
@@ -6,7 +6,7 @@ threads_ref = get_collection("threads")
 
 # Save or update the last message of a thread (chat_id)
 def upsert_thread_last_message(chat_id, app_id, content, platform, role="user", message_type="text", file_url=None):
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     threads_ref.document(chat_id).set({
         "chat_id": chat_id,
         "app_id": app_id,

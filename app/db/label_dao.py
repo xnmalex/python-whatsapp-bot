@@ -1,12 +1,12 @@
 from app.db.firestore_helper import get_collection
 from google.cloud.firestore_v1 import FieldFilter
-from datetime import datetime
+from datetime import datetime, timezone
 
 labels_ref = get_collection("contact_labels")
 
 # Assign multiple contacts to a single label in batch
 def assign_label_to_contacts(label, contact_ids, platform, user_id):
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     label_doc = labels_ref.document(label).get()
 
     if label_doc.exists:

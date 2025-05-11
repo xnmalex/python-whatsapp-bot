@@ -1,11 +1,11 @@
 from app.db.firestore_helper import get_collection
-from datetime import datetime
+from datetime import datetime, timezone
 from google.cloud.firestore_v1 import FieldFilter
 
 subscriptions_ref = get_collection("subscriptions")
 
 def create_subscription(tier, price, level, duration_days):
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
 
     # Check for existing tier
     existing = subscriptions_ref.where(filter=FieldFilter("tier", "==", tier)).limit(1).stream()
@@ -32,7 +32,7 @@ def get_subscription_by_id(plan_id):
 
 # Update a subscription plan
 def update_subscription(plan_id, updates: dict):
-    updates["updated_at"] = datetime.utcnow().isoformat()
+    updates["updated_at"] = datetime.now(timezone.utc)
     # Check for conflicting tier if updating tier
     if "tier" in updates:
         new_tier = updates["tier"]

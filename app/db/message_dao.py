@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db.firestore_helper import get_collection
 from google.cloud.firestore_v1 import FieldFilter
 from app.db.thread_dao import upsert_thread_last_message, get_threads_by_app_id
@@ -7,7 +7,7 @@ messages_ref = get_collection("messages")
 
 # Save a user, assistant, or human agent message to Firestore
 def save_message(**kwargs):
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
 
     message_data = {
         "user_id": kwargs.get("user_id"),
@@ -49,7 +49,7 @@ def update_message_by_thread(thread_id: str, updates: dict):
     """
     messages = messages_ref.where(filter=FieldFilter("thread_id", "==", thread_id)).limit(1).stream()
     for msg in messages:
-        updates["updated_at"] = datetime.utcnow().isoformat()
+        updates["updated_at"] = datetime.now(timezone.utc)
         messages_ref.document(msg.id).update(updates)
         return True
     return False

@@ -27,6 +27,26 @@ def get_profile():
     except Exception as e:
          return jsonify({"status": False, "error":f"{e}"})
      
+@profile_blueprint.route("/update", methods=["PUT"])
+@auth_required
+def update_user_details():
+    user_id = g.current_user['user_id']
+    if not user_id:
+        return jsonify({"error": "Invalid or missing token"}), 401
+    
+    try:
+        data = request.get_json()
+
+        updates = {}
+        if "name" in data:
+            updates["name"] = data["name"]
+
+        update_user(user_id, updates)
+
+        return jsonify({"success": True, "message": "User updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+     
 @profile_blueprint.route("/upload", methods=["POST"])
 @auth_required
 def upload_profile_picture():
